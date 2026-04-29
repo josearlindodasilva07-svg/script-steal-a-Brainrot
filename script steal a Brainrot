@@ -9375,14 +9375,125 @@ task.spawn(function()
 end)
 
 local function tpToBestBrainrot()
-    local bestBase,bestBaseGv=nil,-1; local cache=SharedState.AllAnimalsCache
-    if cache then if Config.AutoTPPriority then for _,pN in ipairs(PRIORITY_LIST) do local sn=pN:lower(); for _,a in ipairs(cache) do if a and a.name and a.name:lower()==sn and a.owner~=LocalPlayer.Name then bestBase=a;bestBaseGv=tonumber(a.genValue) or 0;break end end; if bestBase then break end end end; if not bestBase then for _,a in ipairs(cache) do if a and a.owner~=LocalPlayer.Name then bestBase=a;bestBaseGv=tonumber(a.genValue) or 0;break end end end end
-    SharedState.BestBaseGv=bestBaseGv
-    local bestConv,bestConvGv=nil,-1; for _,e in ipairs(SharedState.ConveyorAnimals or {}) do local gv=tonumber(e.gv) or 0; if e.prompt and e.prompt.Parent and e.prompt.Enabled and e.part and e.part.Parent and gv>bestConvGv then bestConvGv=gv;bestConv=e end end; SharedState.BestConveyorGv=bestConvGv
-    local useConv=bestConv and bestConv.part and bestConv.part.Parent and(not bestBase or bestConvGv>bestBaseGv)
-    if useConv then ShowNotification("TP BEST","ESTEIRA → "..(bestConv.name or "?")); task.spawn(function() local char=LocalPlayer.Character; local hrp=char and char:FindFirstChild("HumanoidRootPart"); local hum=char and char:FindFirstChild("Humanoid"); if not hrp or not hum then return end; local tool=LocalPlayer.Backpack:FindFirstChild(Config.TpSettings.Tool) or char:FindFirstChild(Config.TpSettings.Tool); if tool then hum:EquipTool(tool) end; hrp.AssemblyLinearVelocity=Vector3.new(0,280,0); RunService.Heartbeat:Wait(); hrp.CFrame=CFrame.new(bestConv.part.Position+Vector3.new(0,3,0)) end); return end
-    if bestBase then ShowNotification("TP BEST","BASE → "..bestBase.name); SharedState.SelectedPetData={petName=bestBase.name,mpsText=bestBase.genText,mpsValue=bestBase.genValue,owner=bestBase.owner,plot=bestBase.plot,slot=bestBase.slot,uid=bestBase.uid,mutation=bestBase.mutation,animalData=bestBase}; task.spawn(runAutoSnipe)
-    else ShowNotification("TP BEST","No brainrot found!") end
+    if not game:IsLoaded() then game.Loaded:Wait() end
+    
+    if _G.isTeleporting then
+        ShowNotification("TP BEST", "Já está teleportando...")
+        return
+    end
+    
+    _G.isTeleporting = true
+    
+    local success = false
+    local targetPet = nil
+    local targetType = nil
+    
+    local bestBase = nil
+    local bestBaseGv = -1
+    local cache = SharedState.AllAnimalsCache
+    
+    if cache and #cache > 0 then
+        if Config.AutoTPPriority then
+            for _, pName in ipairs(PRIORITY_LIST) do
+                local searchName = pName:lower()
+                for _, a in ipairs(cache) do
+                    if a and a.name and a.name:lower() == searchName and a.owner ~= LocalPlayer.Name then
+                        bestBase = a
+                        bestBaseGv = tonumber(a.genValue) or 0
+                        break
+                    end
+                end
+                if bestBase then break end
+            end
+        end
+        
+        if not bestBase then
+            for _, a in ipairs(cache) do
+                if a and a.owner ~= LocalPlayer.Name and a.genValue then
+                    local gv = tonumber(a.genValue) or 0
+                    if gv > bestBaseGv then
+                        bestBaseGv = gv
+                        bestBase = a
+                    end
+                end
+            end
+        end
+    end
+    
+    local bestConv = nil
+    local bestConvGv = -1
+    
+    if SharedState.ConveyorAnimals then
+        for _, e in ipairs(SharedState.ConveyorAnimals) do
+            if e and e.prompt and e.prompt.Parent and e.prompt.Enabled and e.part and e.part.Parent then
+                local gv = tonumber(e.gv) or 0
+                if gv > bestConvGv then
+                    bestConvGv = gv
+                    bestConv = e
+                end
+            end
+        end
+    end
+    
+    local useConveyor = bestConv and (not bestBase or bestConvGv > bestBaseGv)
+    
+    if not bestBase and not bestConv then
+        ShowNotification("TP BEST", "Nenhum Brainrot encontrado!")
+        _G.isTeleporting = false
+        return
+    end
+    
+    if useConveyor and bestConv then
+        ShowNotification("TP BEST", "ESTEIRA → " .. (bestConv.name or "?"))
+        
+        task.spawn(function()
+            task.wait(0.3)
+            
+            local char = LocalPlayer.Character
+            local hrp = char and char:FindFirstChild("HumanoidRootPart")
+            local hum = char and char:FindFirstChild("Humanoid")
+            
+            if not hrp or not hum then
+                ShowNotification("TP BEST", "Personagem não encontrado!")
+                _G.isTeleporting = false
+                return
+            end
+            
+            local toolName = Config.TpSettings.Tool or "Flying Carpet"
+            local tool = LocalPlayer.Backpack:FindFirstChild(toolName) or char:FindFirstChild(toolName)
+            if tool and hum then
+                hum:EquipTool(tool)
+                task.wait(0.2)
+            end
+            
+            local targetPos = bestConv.part.Position
+            hrp.AssemblyLinearVelocity = Vector3.new(0, 0, 0)
+            hrp.CFrame = CFrame.new(targetPos + Vector3.new(0, 5, 0))
+            
+            ShowNotification("TP BEST", "Teleportado para ESTEIRA!")
+            task.wait(0.5)
+            _G.isTeleporting = false
+        end)
+        
+    elseif bestBase then
+        ShowNotification("TP BEST","BASE → "..bestBase.name)
+        SharedState.SelectedPetData={
+            petName=bestBase.name,
+            mpsText=bestBase.genText,
+            mpsValue=bestBase.genValue,
+            owner=bestBase.owner,
+            plot=bestBase.plot,
+            slot=bestBase.slot,
+            uid=bestBase.uid,
+            mutation=bestBase.mutation,
+            animalData=bestBase
+        }
+        task.spawn(runAutoSnipe)
+    end
+    
+    task.delay(5, function()
+        _G.isTeleporting = false
+    end)
 end
 _G.tpToBestBrainrot=tpToBestBrainrot
 
