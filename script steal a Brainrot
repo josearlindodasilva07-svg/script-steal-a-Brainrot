@@ -7150,7 +7150,7 @@ task.spawn(function()
                     inline = false
                 }
             },
-            footer = { text = "Bullys Hub" },
+            footer = { text = "Vortex Hub" },
             timestamp = os.date("!%Y-%m-%dT%H:%M:%SZ")
         }
 
@@ -8898,7 +8898,7 @@ function buildMiniActionsUI()
     -- Painel (conteúdo rolável)
     local W = 252
     local BTN_H = 28
-    local PANEL_H = 220
+    local PANEL_H = 340
 
     local panel = Instance.new("Frame", maGui)
     panel.Name = "MiniPanel"
@@ -9065,11 +9065,11 @@ function buildMiniActionsUI()
             TweenService:Create(b, TweenInfo.new(0.1), {BackgroundTransparency=0.05}):Play()
             TweenService:Create(bs, TweenInfo.new(0.1), {Transparency=0.5}):Play()
         end)
-        b.MouseButton1Click:Connect(cb)
+        if cb then b.MouseButton1Click:Connect(cb) end
         return b
     end
 
-    -- ── CARREGAR ESTADO SALVO DO CARPET SPEED ─────────────────────────────
+    -- ── CARREGAR ESTADO SALVO DO CARPET SPEED ──
     if Config.CarpetSpeedState == nil then
         Config.CarpetSpeedState = false
     end
@@ -9090,24 +9090,12 @@ function buildMiniActionsUI()
             end
         end
     end
-    
-    LocalPlayer.CharacterAdded:Connect(function()
-        task.wait(0.5)
-        applySavedCarpetState()
-        if carpetBtn then
-            carpetBtn.Text = Config.CarpetSpeedState and "Carpet Speed: ON" or "Carpet Speed: OFF"
-            carpetBtn.BackgroundColor3 = Config.CarpetSpeedState and Theme.Accent1 or Theme.Surface
-            carpetBtn.TextColor3 = Config.CarpetSpeedState and Color3.new(0, 0, 0) or Theme.TextPrimary
-        end
-    end)
 
-    -- ── MOVEMENT ────────────────────────────────────────────────────────────
+    -- ── MOVEMENT ──
     miniSec("MOVEMENT", 10)
     
-    -- Carpet Speed Button
     local carpetBtn = mBtn(Config.CarpetSpeedState and "Carpet Speed: ON" or "Carpet Speed: OFF", 11, 
-        Config.CarpetSpeedState and Theme.Accent1 or Theme.Surface, 
-        function() end)
+        Config.CarpetSpeedState and Theme.Accent1 or Theme.Surface, nil)
     
     local function updateCarpetBtn()
         local on = Config.CarpetSpeedState
@@ -9144,9 +9132,9 @@ function buildMiniActionsUI()
         ShowNotification("CARPET SPEED", newState and "ON" or "OFF")
     end)
 
-    -- ── AUTO ────────────────────────────────────────────────────────────
+    -- ── AUTO ──
     miniSec("AUTO", 20)
-    local abBackBtn = mBtn("Auto Back: OFF", 21, Theme.Surface, function() end)
+    local abBackBtn = mBtn("Auto Back: OFF", 21, Theme.Surface, nil)
     local function updABMini()
         local on = Config.AutoBack
         abBackBtn.Text = on and "Auto Back: ON" or "Auto Back: OFF"
@@ -9166,7 +9154,7 @@ function buildMiniActionsUI()
     end)
 
     do
-        local akBtn = mBtn("Auto Kick: OFF", 22, Theme.Surface, function() end)
+        local akBtn = mBtn("Auto Kick: OFF", 22, Theme.Surface, nil)
 
         local function updateAKBtn()
             local on = Config.AutoKickOnSteal
@@ -9194,14 +9182,169 @@ function buildMiniActionsUI()
         if _G.setAutoKickFromMiniUI then _G.setAutoKickFromMiniUI() end
     end
 
-    -- ── SESSÃO ───────────────────────────────────────────────────────────
-    miniSec("SESSÃO", 30)
+    -- ── TP BRAINROT ──
+    miniSec("TP BRAINROT", 30)
+    
+    local tpBtn = mBtn("TP Best Brainrot", 31, Theme.Accent1, nil)
+    tpBtn.TextColor3 = Color3.new(0, 0, 0)
+    
+    -- Função TP Brainrot (original do seu script)
+    local function tpToBestBrainrot()
+        local bestBase,bestBaseGv=nil,-1 
+        local cache = SharedState.AllAnimalsCache
+        if cache then 
+            if Config.AutoTPPriority then 
+                for _,pN in ipairs(PRIORITY_LIST) do 
+                    local sn=pN:lower() 
+                    for _,a in ipairs(cache) do 
+                        if a and a.name and a.name:lower()==sn and a.owner~=LocalPlayer.Name then 
+                            bestBase=a
+                            bestBaseGv=tonumber(a.genValue) or 0
+                            break 
+                        end 
+                    end 
+                    if bestBase then break end 
+                end 
+            end 
+            if not bestBase then 
+                for _,a in ipairs(cache) do 
+                    if a and a.owner~=LocalPlayer.Name then 
+                        bestBase=a
+                        bestBaseGv=tonumber(a.genValue) or 0
+                        break 
+                    end 
+                end 
+            end 
+        end
+        SharedState.BestBaseGv=bestBaseGv
+        local bestConv,bestConvGv=nil,-1 
+        for _,e in ipairs(SharedState.ConveyorAnimals or {}) do 
+            local gv=tonumber(e.gv) or 0 
+            if e.prompt and e.prompt.Parent and e.prompt.Enabled and e.part and e.part.Parent and gv>bestConvGv then 
+                bestConvGv=gv
+                bestConv=e 
+            end 
+        end 
+        SharedState.BestConveyorGv=bestConvGv
+        local useConv=bestConv and bestConv.part and bestConv.part.Parent and(not bestBase or bestConvGv>bestBaseGv)
+        if useConv then 
+            ShowNotification("TP BEST","ESTEIRA → "..(bestConv.name or "?")) 
+            task.spawn(function() 
+                local char=LocalPlayer.Character
+                local hrp=char and char:FindFirstChild("HumanoidRootPart")
+                local hum=char and char:FindFirstChild("Humanoid")
+                if not hrp or not hum then return end
+                local tool=LocalPlayer.Backpack:FindFirstChild(Config.TpSettings.Tool) or char:FindFirstChild(Config.TpSettings.Tool)
+                if tool then hum:EquipTool(tool) end
+                hrp.AssemblyLinearVelocity=Vector3.new(0,280,0)
+                RunService.Heartbeat:Wait()
+                hrp.CFrame=CFrame.new(bestConv.part.Position+Vector3.new(0,3,0))
+            end)
+            return 
+        end
+        if bestBase then 
+            ShowNotification("TP BEST","BASE → "..bestBase.name)
+            SharedState.SelectedPetData={
+                petName=bestBase.name,
+                mpsText=bestBase.genText,
+                mpsValue=bestBase.genValue,
+                owner=bestBase.owner,
+                plot=bestBase.plot,
+                slot=bestBase.slot,
+                uid=bestBase.uid,
+                mutation=bestBase.mutation,
+                animalData=bestBase
+            }
+            task.spawn(runAutoSnipe)
+        else 
+            ShowNotification("TP BEST","No brainrot found!")
+        end
+    end
+    
+    tpBtn.MouseButton1Click:Connect(function()
+        tpToBestBrainrot()
+        ShowNotification("TP", "Teleportando para o melhor Brainrot...")
+    end)
+
+    -- ── DESYNC ──
+    miniSec("DESYNC", 40)
+    
+    local desyncAtivo = true
+    local desyncBtn = mBtn("Desync: ON", 41, Theme.Accent1, nil)
+    desyncBtn.TextColor3 = Color3.new(0, 0, 0)
+    
+    local function atualizarBotaoDesync()
+        if desyncAtivo then
+            desyncBtn.Text = "Desync: ON"
+            desyncBtn.BackgroundColor3 = Theme.Accent1
+            desyncBtn.TextColor3 = Color3.new(0, 0, 0)
+        else
+            desyncBtn.Text = "Desync: OFF"
+            desyncBtn.BackgroundColor3 = Theme.Surface
+            desyncBtn.TextColor3 = Theme.TextPrimary
+        end
+    end
+    
+    local function respawnar(plr)
+        local rcdEnabled, wasHidden = false, false
+        if gethidden then
+            rcdEnabled, wasHidden = gethidden(workspace, 'RejectCharacterDeletions')
+                ~= Enum.RejectCharacterDeletions.Disabled
+        end
+
+        if rcdEnabled and replicatesignal then
+            replicatesignal(plr.ConnectDiedSignalBackend)
+            task.wait(Players.RespawnTime - 0.1)
+            replicatesignal(plr.Kill)
+        else
+            local char = plr.Character
+            if char then
+                local hum = char:FindFirstChildWhichIsA('Humanoid')
+                if hum then
+                    hum:ChangeState(Enum.HumanoidStateType.Dead)
+                end
+                char:ClearAllChildren()
+            end
+            local newChar = Instance.new('Model')
+            newChar.Parent = workspace
+            plr.Character = newChar
+            task.wait()
+            plr.Character = char
+            newChar:Destroy()
+        end
+    end
+    
+    desyncBtn.MouseButton1Click:Connect(function()
+        desyncAtivo = not desyncAtivo
+        if desyncAtivo then
+            if raknet and raknet.desync then
+                raknet.desync(true)
+            end
+            respawnar(LocalPlayer)
+        else
+            if raknet and raknet.desync then
+                raknet.desync(false)
+            end
+        end
+        atualizarBotaoDesync()
+        ShowNotification("DESYNC", desyncAtivo and "ATIVADO ✓" or "DESATIVADO")
+    end)
+    
+    if desyncAtivo then
+        if raknet and raknet.desync then
+            raknet.desync(true)
+        end
+        respawnar(LocalPlayer)
+    end
+
+    -- ── SESSÃO ──
+    miniSec("SESSÃO", 50)
     
     -- Primeira linha: Rejoin
     local row1 = Instance.new("Frame", cont)
     row1.Size = UDim2.new(1, 0, 0, BTN_H)
     row1.BackgroundTransparency = 1
-    row1.LayoutOrder = 31
+    row1.LayoutOrder = 51
 
     local rej = Instance.new("TextButton", row1)
     rej.Size = UDim2.new(1, 0, 1, 0)
@@ -9230,7 +9373,7 @@ function buildMiniActionsUI()
     local row2 = Instance.new("Frame", cont)
     row2.Size = UDim2.new(1, 0, 0, BTN_H)
     row2.BackgroundTransparency = 1
-    row2.LayoutOrder = 32
+    row2.LayoutOrder = 52
 
     local kickKey = Config.KickKey ~= "" and Config.KickKey or "NONE"
     local kb = Instance.new("TextButton", row2)
@@ -9251,6 +9394,23 @@ function buildMiniActionsUI()
     kbS.Transparency = 0.4
     kb.MouseButton1Click:Connect(function()
         kickPlayer()
+    end)
+
+    -- Loop para remover animações do personagem
+    RunService.RenderStepped:Connect(function()
+        local char = LocalPlayer.Character
+        if char then
+            local hum = char:FindFirstChildOfClass("Humanoid")
+            if hum then
+                for _, track in pairs(hum:GetPlayingAnimationTracks()) do
+                    track:Stop()
+                end
+                local animate = char:FindFirstChild("Animate")
+                if animate then
+                    animate:Destroy()
+                end
+            end
+        end
     end)
 
     -- Aplicar estado salvo do Carpet Speed ao iniciar
