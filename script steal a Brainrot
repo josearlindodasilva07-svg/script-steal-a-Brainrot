@@ -10591,6 +10591,159 @@ function buildMiniActionsUI()
             end
         end
     end
+    
+    -- ── AUTO DESTROY TURRETS ──
+    miniSec("", 30)
+    
+    local turretAtivo = Config.AutoDestroyTurrets or false
+    local btnTurret = mBtn(turretAtivo and "Auto Turret: ON" or "Auto Turret: OFF", 31, 
+        turretAtivo and Theme.Accent1 or Theme.Surface, nil)
+    btnTurret.TextColor3 = turretAtivo and Color3.new(0, 0, 0) or Theme.TextPrimary
+    
+    local function updateTurretBtn()
+        local on = Config.AutoDestroyTurrets
+        btnTurret.Text = on and "Auto Turret: ON" or "Auto Turret: OFF"
+        btnTurret.BackgroundColor3 = on and Theme.Accent1 or Theme.Surface
+        btnTurret.TextColor3 = on and Color3.new(0, 0, 0) or Theme.TextPrimary
+    end
+    
+    -- Função que realmente destrói as torretas (vai rodar em loop)
+    local turretLoopActive = false
+    local turretLoopConnection = nil
+    
+    local function getChar()
+        local char = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
+        local hrp = char and char:FindFirstChild("HumanoidRootPart")
+        local hum = char and char:FindFirstChild("Humanoid")
+        return char, hrp, hum
+    end
+
+    local function hasExclamation(target)
+        for _, d in ipairs(target:GetDescendants()) do
+            if d:IsA("BillboardGui") then
+                local label = d:FindFirstChildWhichIsA("TextLabel", true)
+                if label and label.Text and label.Text:find("!") then
+                    return true
+                end
+            end
+        end
+        return false
+    end
+
+    local function applyVisuals(target)
+        for _, d in ipairs(target:GetDescendants()) do
+            if d:IsA("BasePart") and d ~= target then
+                d.Transparency = 0.5
+                d.CanCollide = false
+                d.CanTouch = false
+                d.CanQuery = false
+            elseif d:IsA("BillboardGui") and d.Name ~= "SentryLabel" then
+                d:Destroy()
+            elseif d:IsA("Decal") or d:IsA("Texture") then
+                d.Transparency = 0.5
+            end
+        end
+        if target:IsA("BasePart") and target.Name ~= "ProxyVisual" then
+            target.Transparency = 1
+            target.CanCollide = false
+        end
+    end
+
+    local function getClosestSentry()
+        local _, hrp = getChar()
+        if not hrp then return nil end
+        local closest, shortestDist = nil, math.huge
+        for _, inst in ipairs(Workspace:GetDescendants()) do
+            if inst.Name and inst.Name:match("^Sentry_") then
+                if hasExclamation(inst) then
+                    local root = inst:IsA("BasePart") and inst or inst:FindFirstChildWhichIsA("BasePart", true)
+                    if root then
+                        local dist = (hrp.Position - root.Position).Magnitude
+                        if dist < shortestDist then
+                            shortestDist = dist
+                            closest = inst
+                        end
+                    end
+                end
+            end
+        end
+        return closest
+    end
+
+    local function startTurretLoop()
+        if turretLoopConnection then return end
+        turretLoopActive = true
+        turretLoopConnection = task.spawn(function()
+            while turretLoopActive and Config.AutoDestroyTurrets do
+                pcall(function()
+                    if LocalPlayer:GetAttribute("Stealing") == true then
+                        task.wait(0.5)
+                    else
+                        local targetSentry = getClosestSentry()
+                        if targetSentry then
+                            local startTime = tick()
+                            while targetSentry and targetSentry.Parent and (LocalPlayer:GetAttribute("Stealing") ~= true) and (tick() - startTime) < 10 do
+                                local char, hrp, hum = getChar()
+                                if not char or not hrp then break end
+                                
+                                local bat = LocalPlayer.Backpack:FindFirstChild("Bat") or char:FindFirstChild("Bat")
+                                applyVisuals(targetSentry)
+                                
+                                local offset = hrp.CFrame.LookVector * 4
+                                local targetCF = CFrame.new(hrp.Position + offset, hrp.Position)
+                                
+                                if targetSentry:IsA("Model") then
+                                    targetSentry:PivotTo(targetCF)
+                                elseif targetSentry:IsA("BasePart") then
+                                    targetSentry.CFrame = targetCF
+                                end
+                                
+                                if bat then
+                                    if bat.Parent ~= char and hum then hum:EquipTool(bat) end
+                                    bat:Activate()
+                                end
+                                
+                                task.wait(0.1)
+                                if not hasExclamation(targetSentry) then break end
+                            end
+                        end
+                    end
+                end)
+                task.wait(0.1)
+            end
+        end)
+    end
+    
+    local function stopTurretLoop()
+        turretLoopActive = false
+        if turretLoopConnection then
+            task.cancel(turretLoopConnection)
+            turretLoopConnection = nil
+        end
+    end
+    
+    btnTurret.MouseButton1Click:Connect(function()
+        Config.AutoDestroyTurrets = not Config.AutoDestroyTurrets
+        SaveConfig()
+        updateTurretBtn()
+        
+        if Config.AutoDestroyTurrets then
+            startTurretLoop()
+            ShowNotification("AUTO TURRET", "ATIVADO ✓")
+        else
+            stopTurretLoop()
+            ShowNotification("AUTO TURRET", "DESATIVADO")
+        end
+        
+        if SharedState.UpdateStealPanelUI then
+            pcall(SharedState.UpdateStealPanelUI)
+        end
+    end)
+    
+    -- Iniciar o loop se já estiver ativado
+    if Config.AutoDestroyTurrets then
+        task.spawn(startTurretLoop)
+    end
 
     -- ── MOVEMENT ──
     miniSec("MOVEMENT", 10)
